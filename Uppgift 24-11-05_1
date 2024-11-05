@@ -1,0 +1,39 @@
+-- Skapa kategori-tabellen
+CREATE TABLE kategori (
+    kategori_id INT PRIMARY KEY IDENTITY(1,1),  
+    namn VARCHAR(50) NOT NULL
+);
+
+
+-- Skapa bok-tabellen
+CREATE TABLE bok (
+    bok_id INT PRIMARY KEY IDENTITY(1,1),
+    titel VARCHAR(100) NOT NULL,
+    kategori_id INT,
+    FOREIGN KEY (kategori_id) REFERENCES kategori(kategori_id)  
+);
+
+
+-- Fyll i kategori-tabellen
+INSERT INTO kategori (namn) VALUES ('Fiction'), ('Science'), ('History'), ('Biography');
+
+
+-- Fyll i bok-tabellen
+INSERT INTO bok (titel, kategori_id) VALUES ('Book 1', 1), ('Book 2', 2), ('Book 3', 1), ('Book 4', NULL);
+
+SELECT bok.titel, kategori.namn AS kategori FROM bok
+LEFT join kategori on bok.kategori_id = kategori.kategori_id;
+
+
+SELECT bok.titel
+FROM bok
+JOIN kategori ON bok.kategori_id = kategori.kategori_id
+WHERE kategori.namn = 'Fiction';  
+
+SELECT kategori.namn AS kategori, bok.titel
+FROM kategori
+LEFT JOIN bok ON kategori.kategori_id = bok.kategori_id;
+
+DELETE FROM bok WHERE bok_id = 1;  
+
+DELETE FROM kategori WHERE kategori_id = 2;  
