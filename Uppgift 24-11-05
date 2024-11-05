@@ -1,0 +1,104 @@
+CREATE DATABASE BookStore2;
+
+CREATE TABLE bok(
+    id int PRIMARY KEY IDENTITY(1,1),
+    name NCHAR(255),
+    description NCHAR(255),
+     
+);
+
+CREATE TABLE kategori(
+    id INT PRIMARY KEY IDENTITY(1,1),
+    name NVARCHAR(250)
+);
+
+CREATE TABLE bok_kategori(
+    kategori_id INT FOREIGN KEY REFERENCES kategori(id), --läsa från andra
+    bok_id INT FOREIGN KEY REFERENCES bok(id),
+    PRIMARY KEY(kategori_id, bok_id)    
+);
+
+INSERT INTO bok(name, [description])
+VALUES ('Harry Potter', 'bok')
+
+INSERT INTO bok(name, [description])
+VALUES ('Larry Potter', 'bok2')
+
+INSERT INTO bok(name, [description])
+VALUES ('Terry Potter', 'bok2')
+
+INSERT INTO bok(name, [description])
+VALUES ('Perry Potter', 'bok2')
+
+INSERT INTO kategori(name)
+VALUES ('läskigt');
+
+INSERT INTO kategori(name)
+VALUES ('spenande');
+
+INSERT INTO kategori(name)
+VALUES ('skit');
+
+INSERT INTO kategori(name)
+VALUES ('najs');
+
+INSERT INTO bok_kategori
+VALUES (1,1);
+
+INSERT INTO bok_kategori
+VALUES (2,2);
+
+INSERT INTO bok_kategori
+VALUES (3,3);
+
+INSERT INTO bok_kategori
+VALUES (2,3);
+
+SELECT * FROM bok,kategori;
+
+-- Alla böcker och kategorier
+SELECT B.name,k.name FROM bok AS B
+
+INNER JOIN bok_kategori AS BK
+ON B.id = BK.bok_id
+
+INNER JOIN kategori AS k
+ON k.id = bk.kategori_id;
+
+-- Alla böcker för kategori 2
+SELECT B.name,k.name FROM bok AS B
+
+INNER JOIN bok_kategori AS BK
+ON B.id = BK.bok_id
+
+INNER JOIN kategori AS k
+ON k.id = bk.kategori_id 
+AND k.id = 2;
+
+--Samtliga kategorier oavsätt bok eller inte
+SELECT * FROM kategori AS K
+
+LEFT JOIN bok_kategori AS BK
+ON BK.kategori_id = k.id
+
+LEFT JOIN bok AS B
+ON B.id = BK.bok_id
+
+--Samtliga böcker oavsätt kategori eller inte
+ SELECT B.name,k.name FROM bok AS B
+
+LEFT JOIN bok_kategori AS BK
+ON B.id = BK.bok_id
+
+LEFT JOIN kategori AS k
+ON k.id = bk.kategori_id;
+
+
+--Delete (inte möjligt pga ref)
+DELETE FROM bok WHERE id = 1;
+DELETE FROM kategori WHERE id = 2;
+
+
+
+
+
