@@ -1,0 +1,71 @@
+CREATE DATABASE Event_Management_System;
+
+CREATE TABLE Events (
+    event_id INT PRIMARY KEY IDENTITY(1,1),
+    event_name NVARCHAR(255),
+    event_date DATETIME DEFAULT GETDATE()
+);
+
+CREATE TABLE Speakers(
+    speaker_id INT PRIMARY KEY IDENTITY(1,1),
+    speaker_name NVARCHAR(250),
+    max_decibel INT
+);
+
+CREATE TABLE EventSpeakers(
+    event_id INT NOT NULL,
+    speaker_id INT NOT NULL,
+    FOREIGN KEY (event_id) REFERENCES Events(event_id),
+    FOREIGN KEY (speaker_id) REFERENCES Speakers(speaker_id),
+    PRIMARY KEY (event_id, speaker_id)
+);
+
+
+-- Insert sample events
+INSERT INTO Events (event_name, event_date)
+VALUES 
+    ('Tech Conference 2024', '2024-05-21'),
+    ('Startup Summit', '2024-06-10'),
+    ('Healthcare Innovations 2024', '2024-07-15');
+
+-- Insert sample speakers
+INSERT INTO Speakers (speaker_name, max_decibel)
+VALUES 
+    ('Alice Johnson', 85),
+    ('Bob Smith', 90),
+    ('Carlos Ray', 88),
+    ('Diana Wu', 87),
+    ('Ethan Parker', 92);
+
+INSERT INTO EventSpeakers (event_id, speaker_id)
+VALUES 
+    (1, 1),  -- Alice Johnson at Tech Conference 2024
+    (1, 1),  -- Bob Smith at Tech Conference 2024
+    (2, 1),  -- Bob Smith at Startup Summit
+    (2, 3),  -- Carlos Ray at Startup Summit
+    (3, 3),  -- Carlos Ray at Healthcare Innovations 2024
+    (3, 4),  -- Diana Wu at Healthcare Innovations 2024
+    (1, 5);  -- Ethan Parker at Tech Conference 2024
+
+
+
+SELECT * FROM Speakers;
+SELECT * FROM Events;
+
+SELECT Events.event_name, Speakers.speaker_name
+FROM Events
+INNER JOIN Speakers ON event_id = speaker_id;
+
+SELECT Events.event_name, Speakers.speaker_name
+FROM Speakers
+INNER JOIN Events ON speaker_id  = event_id;
+
+
+SELECT 
+    Events.event_name, 
+    Speakers.speaker_name
+FROM Events
+INNER JOIN 
+    EventSpeakers ON Events.event_id = EventSpeakers.event_id
+INNER JOIN
+    Speakers ON EventSpeakers.speaker_id = Speakers.speaker_id;
