@@ -1,0 +1,246 @@
+// Skapa och använd databasen "nyheterDB" (den skapas om den inte finns)
+use nyheterDB
+
+// Skapa collectionen "artiklar"
+db.createCollection("artiklar")
+
+// Lägg till flera artiklar med insertMany
+db.artiklar.insertMany([
+  {
+    title: "Nyhet 1",  // Titel på artikeln
+    content: "Innehåll för nyhet 1",  // Innehållet i artikeln
+    author: "Författare 1",  // Författare av artikeln
+    date: new ISODate("2024-11-01T00:00:00Z"),  // Datum för artikeln
+    tags: ["politik", "samhälle"],  // Taggar relaterade till artikeln
+    favorite: false  // Om artikeln är markerad som favorit (initialt false)
+  },
+  {
+    title: "Nyhet 2",
+    content: "Innehåll för nyhet 2",
+    author: "Författare 2",
+    date: new ISODate("2024-11-02T00:00:00Z"),
+    tags: ["ekonomi", "affärer"],
+    favorite: false
+  }
+])
+
+// Skapa en artikel med insertOne
+db.artiklar.insertOne({
+  title: "Nyhet 3",
+  content: "Innehåll för nyhet 3",
+  author: "Författare 3",
+  date: new ISODate("2024-11-03T00:00:00Z"),
+  tags: ["miljö", "klimat"],
+  favorite: false
+})
+
+// Hämta alla artiklar
+db.artiklar.find()
+
+// Sök efter artiklar som innehåller "nyhet" i titeln
+db.artiklar.find({ title: /nyhet/i })
+
+// Uppdatera en artikel och markera den som favorit
+db.artiklar.updateOne(
+  { title: "Nyhet 1" },  // Hitta artikeln med titeln "Nyhet 1"
+  { $set: { favorite: true } }  // Uppdatera "favorite" till true
+)
+
+// Ta bort en artikel med titeln "Nyhet 1"
+db.artiklar.deleteOne({ title: "Nyhet 1" })
+
+// Sök och sortera artiklar efter datum (stigande ordning)
+db.artiklar.find().sort({ date: 1 })  // 1 för stigande, -1 för fallande
+
+// Markera en artikel som favorit
+db.artiklar.updateOne(
+  { title: "Nyhet 2" },  // Hitta artikeln med titeln "Nyhet 2"
+  { $set: { favorite: true } }  // Markera den som favorit
+)
+
+// Räkna antalet artiklar som är markerade som favorit
+db.artiklar.countDocuments({ favorite: true })
+
+// Visa alla artiklar som är markerade som favorit
+db.artiklar.find({ favorite: true })
+
+// Visa endast titeln och datum för de artiklar som är favoriter
+db.artiklar.find(
+  { favorite: true },  // Filtrera artiklar som är favoriter
+  { title: 1, date: 1 }  // Projection för att endast visa "title" och "date"
+)
+
+
+USE master;
+
+-- Visa processer med sp_who2 och avsluta process med kill ID
+--sp_who2
+--kill id
+
+-- Raderar alla existerande data för att börja om från början om man vill
+-- DELETE FROM Inventory;
+-- DELETE FROM Orders;
+-- DELETE FROM Products;
+-- DELETE FROM Suppliers;
+-- DELETE FROM Warehouses;
+
+-- Skapar databasen Inventariesystem
+CREATE DATABASE Inventariesystem;
+
+USE Inventariesystem;
+
+-- Skapar tabellen Suppliers 
+CREATE TABLE Suppliers (
+    SupplierID INT PRIMARY KEY,
+    SupplierName NVARCHAR(100),
+    ContactInfo NVARCHAR(255),
+    CONSTRAINT uc_SupplierName UNIQUE (SupplierName) -- Leverantörsnamn måste vara unikt
+);
+
+-- Skapar tabellen Products 
+CREATE TABLE Products (
+    ProductID INT PRIMARY KEY,
+    ProductName NVARCHAR(100),
+    SKU NVARCHAR(50) UNIQUE,
+    Price DECIMAL(10, 2),
+    SupplierID INT,
+    FOREIGN KEY (SupplierID) REFERENCES Suppliers(SupplierID)
+);
+
+-- Skapar tabellen Warehouses 
+CREATE TABLE Warehouses (
+    WarehouseID INT PRIMARY KEY,
+    Location NVARCHAR(100),
+    Capacity INT
+);
+
+-- Skapar tabellen Inventory 
+CREATE TABLE Inventory (
+    InventoryID INT PRIMARY KEY,
+    ProductID INT,
+    WarehouseID INT,
+    Quantity INT,
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID),
+    FOREIGN KEY (WarehouseID) REFERENCES Warehouses(WarehouseID)
+);
+
+-- Skapar tabellen Orders 
+CREATE TABLE Orders (
+    OrderID INT PRIMARY KEY,
+    OrderDate DATE,
+    ProductID INT,
+    Quantity INT,
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+);
+
+-- Skapar en vy för att visa lagerinformation
+CREATE VIEW WarehouseInventory AS
+SELECT w.WarehouseID, w.Location, p.ProductName, i.Quantity
+FROM Inventory i
+INNER JOIN Products p ON i.ProductID = p.ProductID
+INNER JOIN Warehouses w ON i.WarehouseID = w.WarehouseID;
+
+-- Skapar en vy för de senaste beställningarna
+CREATE VIEW RecentOrders AS
+SELECT o.OrderID, o.OrderDate, p.ProductName, o.Quantity
+FROM Orders o
+INNER JOIN Products p ON o.ProductID = p.ProductID
+WHERE o.OrderDate >= DATEADD(month, -1, GETDATE());
+
+-- Infogar realistiska data i Leverantörer (Suppliers)
+INSERT INTO Suppliers (SupplierID, SupplierName, ContactInfo) VALUES 
+(1, 'TechGear Suppliers', 'info@techgear.com'),
+(2, 'HomeEssentials Co.', 'support@homeessentials.com'),
+(3, 'Outdoor Solutions', 'contact@outdoorsolutions.com');
+
+-- Infogar realistiska data i Produkter (Products)
+INSERT INTO Products (ProductID, ProductName, SKU, Price, SupplierID) VALUES 
+(1, 'Laptop 15 tum', 'LAP-15-TG', 899.99, 1),
+(2, 'Trådlös Mus', 'MOU-WLS-TG', 24.99, 1),
+(3, 'Kontorsstol', 'CHA-OFC-HE', 149.99, 2),
+(4, 'Höj- och sänkbart Skrivbord', 'DES-STND-HE', 399.99, 2),
+(5, 'Camping Tält', 'TEN-CMP-OS', 199.99, 3),
+(6, 'Vandringsryggsäck', 'BPK-HKG-OS', 89.99, 3);
+
+-- Infogar realistiska data i Lagerplatser (Warehouses)
+INSERT INTO Warehouses (WarehouseID, Location, Capacity) VALUES 
+(1, 'New York Distributionscenter', 1000),
+(2, 'Los Angeles Lager', 750),
+(3, 'Chicago Lagringsanläggning', 1200);
+
+-- realistisk data i Inventory 
+INSERT INTO Inventory (InventoryID, ProductID, WarehouseID, Quantity) VALUES 
+(1, 1, 1, 150),      
+(2, 2, 1, 500),      
+(3, 3, 2, 80),       
+(4, 4, 2, 45),       
+(5, 5, 3, 60),       
+(6, 6, 3, 200);      
+
+-- realistisk data i Beställningar (Orders)
+INSERT INTO Orders (OrderID, OrderDate, ProductID, Quantity) VALUES 
+(1, '2024-11-10', 1, 20),      
+(2, '2024-11-10', 2, 100),    
+(3, '2024-11-11', 3, 10),      
+(4, '2024-11-12', 4, 5),      
+(5, '2024-11-12', 5, 8),       
+(6, '2024-11-13', 6, 25);      
+
+-- Uppdatera lagersaldot för en specifik produkt
+UPDATE Inventory
+SET Quantity = 100
+WHERE ProductID = 1 AND WarehouseID = 1;
+
+-- Tar bort en produkt
+DELETE FROM Products
+WHERE ProductID = 1;
+
+-- Tar bort en beställning
+DELETE FROM Orders
+WHERE OrderID = 1;
+
+-- Visar beställningar och produktinformation
+SELECT o.OrderID, o.OrderDate, p.ProductName, o.Quantity
+FROM Orders o
+INNER JOIN Products p ON o.ProductID = p.ProductID;
+
+-- Räknar totala antalet produkter i lager
+SELECT COUNT(*) AS TotalProductsInInventory FROM Inventory;
+
+-- Beräknar genomsnittspriset på produkterna
+SELECT AVG(Price) AS AverageProductPrice FROM Products;
+
+-- Visar beställningar från senaste månaden
+SELECT * FROM RecentOrders;
+
+-- Hantering av transaktion vid ny produktinläggning och lagertillägg
+BEGIN TRANSACTION;
+
+BEGIN TRY
+    -- Lägg till en ny produkt
+    DECLARE @NewProductID INT;
+    INSERT INTO Products (ProductName, SKU, Price, SupplierID)
+    VALUES ('Ny Produkt', 'SKU67890', 150.00, 2);
+    SET @NewProductID = SCOPE_IDENTITY();
+
+    -- Uppdatera lager med den nya produkten
+    INSERT INTO Inventory (ProductID, WarehouseID, Quantity)
+    VALUES (@NewProductID, 1, 75);
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
+
+-- Hämtar beställningar och kontrollerar att varje produkt finns
+SELECT o.OrderID, o.OrderDate, p.ProductName
+FROM Orders o
+INNER JOIN Products p ON o.ProductID = p.ProductID;
+
+-- Kontrollerar att varje lagerpost motsvarar en existerande lagerplats
+SELECT i.InventoryID, p.ProductName, w.Location
+FROM Inventory i
+INNER JOIN Products p ON i.ProductID = p.ProductID
+INNER JOIN Warehouses w ON i.WarehouseID = w.WarehouseID;
