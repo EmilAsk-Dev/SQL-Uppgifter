@@ -84,148 +84,187 @@ USE master;
 -- DELETE FROM Suppliers;
 -- DELETE FROM Warehouses;
 
--- Skapar databasen Inventariesystem
+--sp_who2
+USE master;
+
+-- Steg 1: Skapa databasen
 CREATE DATABASE Inventariesystem;
 
 USE Inventariesystem;
 
--- Skapar tabellen Suppliers 
+-- Steg 2: Skapa tabeller
 CREATE TABLE Suppliers (
-    SupplierID INT PRIMARY KEY,
-    SupplierName NVARCHAR(100),
-    ContactInfo NVARCHAR(255),
-    CONSTRAINT uc_SupplierName UNIQUE (SupplierName) -- Leverantörsnamn måste vara unikt
+    SupplierID INT PRIMARY KEY IDENTITY,
+    SupplierName NVARCHAR(100) UNIQUE,
+    ContactInfo NVARCHAR(255)
 );
 
--- Skapar tabellen Products 
 CREATE TABLE Products (
-    ProductID INT PRIMARY KEY,
+    ProductID INT PRIMARY KEY IDENTITY,
     ProductName NVARCHAR(100),
     SKU NVARCHAR(50) UNIQUE,
     Price DECIMAL(10, 2),
-    SupplierID INT,
+    SupplierID INT NOT NULL,
     FOREIGN KEY (SupplierID) REFERENCES Suppliers(SupplierID)
 );
 
--- Skapar tabellen Warehouses 
 CREATE TABLE Warehouses (
-    WarehouseID INT PRIMARY KEY,
+    WarehouseID INT PRIMARY KEY IDENTITY,
     Location NVARCHAR(100),
     Capacity INT
 );
 
--- Skapar tabellen Inventory 
 CREATE TABLE Inventory (
-    InventoryID INT PRIMARY KEY,
-    ProductID INT,
-    WarehouseID INT,
+    InventoryID INT PRIMARY KEY IDENTITY,
+    ProductID INT NOT NULL,
+    WarehouseID INT NOT NULL,
     Quantity INT,
     FOREIGN KEY (ProductID) REFERENCES Products(ProductID),
     FOREIGN KEY (WarehouseID) REFERENCES Warehouses(WarehouseID)
 );
 
--- Skapar tabellen Orders 
 CREATE TABLE Orders (
-    OrderID INT PRIMARY KEY,
-    OrderDate DATE,
-    ProductID INT,
-    Quantity INT,
+    OrderID INT PRIMARY KEY IDENTITY,
+    OrderDate DATE NOT NULL,
+    ProductID INT NOT NULL,
+    Quantity INT NOT NULL,
     FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
 );
 
--- Skapar en vy för att visa lagerinformation
+CREATE TABLE OrderDetails (
+    OrderDetailID INT PRIMARY KEY IDENTITY,
+    OrderID INT NOT NULL,
+    ProductID INT NOT NULL,
+    Quantity INT,
+    FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+);
+
+-- Steg 3: Infoga exempeldata
+INSERT INTO Suppliers (SupplierName, ContactInfo) VALUES
+('Supplier A', 'contact@supplierA.com'),
+('Supplier B', 'contact@supplierB.com'),
+('Supplier C', 'contact@supplierC.com');
+
+INSERT INTO Products (ProductName, SKU, Price, SupplierID) VALUES
+('Product 1', 'SKU001', 100.00, 1),
+('Product 2', 'SKU002', 200.00, 2),
+('Product 3', 'SKU003', 300.00, 3);
+
+INSERT INTO Warehouses (Location, Capacity) VALUES
+('Stockholm', 500),
+('Gothenburg', 300),
+('Malmo', 200);
+
+INSERT INTO Inventory (ProductID, WarehouseID, Quantity) VALUES
+(1, 1, 50),
+(2, 2, 30),
+(3, 3, 20);
+
+INSERT INTO Orders (OrderDate, ProductID, Quantity) VALUES
+('2024-11-01', 1, 10),
+('2024-11-05', 2, 5),
+('2024-11-10', 3, 15);
+
+INSERT INTO OrderDetails (OrderID, ProductID, Quantity) VALUES
+(1, 1, 10),
+(2, 2, 5),
+(3, 3, 15);
+
+-- Steg 4: Skapa vyer
 CREATE VIEW WarehouseInventory AS
 SELECT w.WarehouseID, w.Location, p.ProductName, i.Quantity
 FROM Inventory i
 INNER JOIN Products p ON i.ProductID = p.ProductID
 INNER JOIN Warehouses w ON i.WarehouseID = w.WarehouseID;
 
--- Skapar en vy för de senaste beställningarna
 CREATE VIEW RecentOrders AS
 SELECT o.OrderID, o.OrderDate, p.ProductName, o.Quantity
 FROM Orders o
 INNER JOIN Products p ON o.ProductID = p.ProductID
 WHERE o.OrderDate >= DATEADD(month, -1, GETDATE());
 
--- Infogar realistiska data i Leverantörer (Suppliers)
-INSERT INTO Suppliers (SupplierID, SupplierName, ContactInfo) VALUES 
-(1, 'TechGear Suppliers', 'info@techgear.com'),
-(2, 'HomeEssentials Co.', 'support@homeessentials.com'),
-(3, 'Outdoor Solutions', 'contact@outdoorsolutions.com');
+-- Steg 5: Skapa lagrade procedurer
+CREATE PROCEDURE AddProduct
+    @ProductName NVARCHAR(100),
+    @SKU NVARCHAR(50),
+    @Price DECIMAL(10, 2),
+    @SupplierID INT
+AS
+BEGIN
+    -- Kontrollera om SKU redan finns
+    IF NOT EXISTS (SELECT 1 FROM Products WHERE SKU = @SKU)
+    BEGIN
+        INSERT INTO Products (ProductName, SKU, Price, SupplierID)
+        VALUES (@ProductName, @SKU, @Price, @SupplierID);
+    END
+    ELSE
+    BEGIN
+        PRINT 'Produkt med SKU redan finns.';
+    END
+END;
 
--- Infogar realistiska data i Produkter (Products)
-INSERT INTO Products (ProductID, ProductName, SKU, Price, SupplierID) VALUES 
-(1, 'Laptop 15 tum', 'LAP-15-TG', 899.99, 1),
-(2, 'Trådlös Mus', 'MOU-WLS-TG', 24.99, 1),
-(3, 'Kontorsstol', 'CHA-OFC-HE', 149.99, 2),
-(4, 'Höj- och sänkbart Skrivbord', 'DES-STND-HE', 399.99, 2),
-(5, 'Camping Tält', 'TEN-CMP-OS', 199.99, 3),
-(6, 'Vandringsryggsäck', 'BPK-HKG-OS', 89.99, 3);
+CREATE PROCEDURE AddOrder
+    @ProductID INT,
+    @Quantity INT,
+    @OrderDate DATE
+AS
+BEGIN
+    INSERT INTO Orders (ProductID, Quantity, OrderDate)
+    VALUES (@ProductID, @Quantity, @OrderDate);
 
--- Infogar realistiska data i Lagerplatser (Warehouses)
-INSERT INTO Warehouses (WarehouseID, Location, Capacity) VALUES 
-(1, 'New York Distributionscenter', 1000),
-(2, 'Los Angeles Lager', 750),
-(3, 'Chicago Lagringsanläggning', 1200);
+    -- Uppdatera lagret
+    UPDATE Inventory
+    SET Quantity = Quantity - @Quantity
+    WHERE ProductID = @ProductID;
+END;
 
--- realistisk data i Inventory 
-INSERT INTO Inventory (InventoryID, ProductID, WarehouseID, Quantity) VALUES 
-(1, 1, 1, 150),      
-(2, 2, 1, 500),      
-(3, 3, 2, 80),       
-(4, 4, 2, 45),       
-(5, 5, 3, 60),       
-(6, 6, 3, 200);      
+-- Trigger för att logga beställningar
+CREATE TRIGGER LogOrderInsert
+ON Orders
+AFTER INSERT
+AS
+BEGIN
+    PRINT 'En ny beställning har lagts in.';
+END;
 
--- realistisk data i Beställningar (Orders)
-INSERT INTO Orders (OrderID, OrderDate, ProductID, Quantity) VALUES 
-(1, '2024-11-10', 1, 20),      
-(2, '2024-11-10', 2, 100),    
-(3, '2024-11-11', 3, 10),      
-(4, '2024-11-12', 4, 5),      
-(5, '2024-11-12', 5, 8),       
-(6, '2024-11-13', 6, 25);      
+-- Trigger för att uppdatera lagret efter beställning
+CREATE TRIGGER UpdateInventoryAfterOrder
+ON Orders
+AFTER INSERT
+AS
+BEGIN
+    UPDATE inv
+    SET inv.Quantity = inv.Quantity - i.Quantity
+    FROM Inventory inv
+    INNER JOIN Inserted i ON inv.ProductID = i.ProductID;
+END;
 
--- Uppdatera lagersaldot för en specifik produkt
-UPDATE Inventory
-SET Quantity = 100
-WHERE ProductID = 1 AND WarehouseID = 1;
-
--- Tar bort en produkt
-DELETE FROM Products
-WHERE ProductID = 1;
-
--- Tar bort en beställning
-DELETE FROM Orders
-WHERE OrderID = 1;
-
--- Visar beställningar och produktinformation
-SELECT o.OrderID, o.OrderDate, p.ProductName, o.Quantity
-FROM Orders o
-INNER JOIN Products p ON o.ProductID = p.ProductID;
-
--- Räknar totala antalet produkter i lager
-SELECT COUNT(*) AS TotalProductsInInventory FROM Inventory;
-
--- Beräknar genomsnittspriset på produkterna
+-- Steg 7: Kör statistiska frågor
+SELECT COUNT(*) AS TotalInventory FROM Inventory;
 SELECT AVG(Price) AS AverageProductPrice FROM Products;
+SELECT SUM(Quantity) AS TotalStock FROM Inventory;
 
--- Visar beställningar från senaste månaden
-SELECT * FROM RecentOrders;
-
--- Hantering av transaktion vid ny produktinläggning och lagertillägg
+-- Steg 8: Transaktion för att lägga till produkt och uppdatera lagret
 BEGIN TRANSACTION;
-
 BEGIN TRY
-    -- Lägg till en ny produkt
     DECLARE @NewProductID INT;
-    INSERT INTO Products (ProductName, SKU, Price, SupplierID)
-    VALUES ('Ny Produkt', 'SKU67890', 150.00, 2);
-    SET @NewProductID = SCOPE_IDENTITY();
 
-    -- Uppdatera lager med den nya produkten
-    INSERT INTO Inventory (ProductID, WarehouseID, Quantity)
-    VALUES (@NewProductID, 1, 75);
+    -- Kontrollera om SKU redan finns
+    IF NOT EXISTS (SELECT 1 FROM Products WHERE SKU = 'EXP123')
+    BEGIN
+        INSERT INTO Products (ProductName, SKU, Price, SupplierID)
+        VALUES ('Exempelprodukt', 'EXP123', 500.00, 1);
+        
+        SET @NewProductID = SCOPE_IDENTITY();
+
+        INSERT INTO Inventory (ProductID, WarehouseID, Quantity)
+        VALUES (@NewProductID, 1, 100);
+    END
+    ELSE
+    BEGIN
+        PRINT 'Produkt med SKU EXP123 finns redan.';
+    END
 
     COMMIT TRANSACTION;
 END TRY
@@ -234,13 +273,53 @@ BEGIN CATCH
     THROW;
 END CATCH;
 
--- Hämtar beställningar och kontrollerar att varje produkt finns
-SELECT o.OrderID, o.OrderDate, p.ProductName
-FROM Orders o
-INNER JOIN Products p ON o.ProductID = p.ProductID;
+-- Steg 9: Tester för transaktioner och triggers
 
--- Kontrollerar att varje lagerpost motsvarar en existerande lagerplats
-SELECT i.InventoryID, p.ProductName, w.Location
-FROM Inventory i
-INNER JOIN Products p ON i.ProductID = p.ProductID
-INNER JOIN Warehouses w ON i.WarehouseID = w.WarehouseID;
+-- 1. Testa transaktionen för att lägga till produkt och uppdatera lager
+BEGIN TRANSACTION;
+BEGIN TRY
+    -- Lägg till produkt och uppdatera lagret
+    EXEC AddProduct @ProductName = 'Test Product', @SKU = 'TEST123', @Price = 250.00, @SupplierID = 1;
+
+    -- Kontrollera att produkten har lagts till i Products
+    SELECT * FROM Products WHERE SKU = 'TEST123';
+
+    -- Uppdatera lagret
+    EXEC AddOrder @ProductID = (SELECT ProductID FROM Products WHERE SKU = 'TEST123'), @Quantity = 10, @OrderDate = '2024-11-28';
+
+    -- Kontrollera att lagret har uppdaterats i Inventory
+    SELECT * FROM Inventory WHERE ProductID = (SELECT ProductID FROM Products WHERE SKU = 'TEST123');
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
+
+-- 2. Testa felhantering i transaktionen (försök att lägga till en produkt med samma SKU)
+BEGIN TRANSACTION;
+BEGIN TRY
+    -- Försök att lägga till en produkt med samma SKU som redan finns
+    EXEC AddProduct @ProductName = 'Existing Product', @SKU = 'SKU001', @Price = 500.00, @SupplierID = 1;
+
+    -- Kontrollera om någon produkt med samma SKU lades till
+    SELECT * FROM Products WHERE SKU = 'SKU001';
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION;
+    PRINT 'Ett fel har inträffat. Transaktionen har rullats tillbaka.';
+    THROW;
+END CATCH;
+
+-- 3. Testa trigger för lageruppdatering efter beställning
+INSERT INTO Orders (OrderDate, ProductID, Quantity) VALUES ('2024-11-28', 1, 5);
+SELECT * FROM Inventory WHERE ProductID = 1;
+
+-- 4. Testa trigger för loggning av beställningar
+INSERT INTO Orders (OrderDate, ProductID, Quantity) VALUES ('2024-11-28', 2, 3);
+
+-- Steg 10: Ta bort exempelprodukt
+DELETE FROM Products WHERE ProductID = 1;
