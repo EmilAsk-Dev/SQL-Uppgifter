@@ -1,98 +1,15 @@
-// Skapa och använd databasen "nyheterDB" (den skapas om den inte finns)
-use nyheterDB
-
-// Skapa collectionen "artiklar"
-db.createCollection("artiklar")
-
-// Lägg till flera artiklar med insertMany
-db.artiklar.insertMany([
-  {
-    title: "Nyhet 1",  // Titel på artikeln
-    content: "Innehåll för nyhet 1",  // Innehållet i artikeln
-    author: "Författare 1",  // Författare av artikeln
-    date: new ISODate("2024-11-01T00:00:00Z"),  // Datum för artikeln
-    tags: ["politik", "samhälle"],  // Taggar relaterade till artikeln
-    favorite: false  // Om artikeln är markerad som favorit (initialt false)
-  },
-  {
-    title: "Nyhet 2",
-    content: "Innehåll för nyhet 2",
-    author: "Författare 2",
-    date: new ISODate("2024-11-02T00:00:00Z"),
-    tags: ["ekonomi", "affärer"],
-    favorite: false
-  }
-])
-
-// Skapa en artikel med insertOne
-db.artiklar.insertOne({
-  title: "Nyhet 3",
-  content: "Innehåll för nyhet 3",
-  author: "Författare 3",
-  date: new ISODate("2024-11-03T00:00:00Z"),
-  tags: ["miljö", "klimat"],
-  favorite: false
-})
-
-// Hämta alla artiklar
-db.artiklar.find()
-
-// Sök efter artiklar som innehåller "nyhet" i titeln
-db.artiklar.find({ title: /nyhet/i })
-
-// Uppdatera en artikel och markera den som favorit
-db.artiklar.updateOne(
-  { title: "Nyhet 1" },  // Hitta artikeln med titeln "Nyhet 1"
-  { $set: { favorite: true } }  // Uppdatera "favorite" till true
-)
-
-// Ta bort en artikel med titeln "Nyhet 1"
-db.artiklar.deleteOne({ title: "Nyhet 1" })
-
-// Sök och sortera artiklar efter datum (stigande ordning)
-db.artiklar.find().sort({ date: 1 })  // 1 för stigande, -1 för fallande
-
-// Markera en artikel som favorit
-db.artiklar.updateOne(
-  { title: "Nyhet 2" },  // Hitta artikeln med titeln "Nyhet 2"
-  { $set: { favorite: true } }  // Markera den som favorit
-)
-
-// Räkna antalet artiklar som är markerade som favorit
-db.artiklar.countDocuments({ favorite: true })
-
-// Visa alla artiklar som är markerade som favorit
-db.artiklar.find({ favorite: true })
-
-// Visa endast titeln och datum för de artiklar som är favoriter
-db.artiklar.find(
-  { favorite: true },  // Filtrera artiklar som är favoriter
-  { title: 1, date: 1 }  // Projection för att endast visa "title" och "date"
-)
-
-
 USE master;
 
--- Visa processer med sp_who2 och avsluta process med kill ID
---sp_who2
---kill id
+sp_who
 
--- Raderar alla existerande data för att börja om från början om man vill
--- DELETE FROM Inventory;
--- DELETE FROM Orders;
--- DELETE FROM Products;
--- DELETE FROM Suppliers;
--- DELETE FROM Warehouses;
+DROP DATABASE Inventariesystem;
 
---sp_who2
-USE master;
-
--- Steg 1: Skapa databasen
+-- Skapa databasen
 CREATE DATABASE Inventariesystem;
 
 USE Inventariesystem;
 
--- Steg 2: Skapa tabeller
+-- Skapa tabeller
 CREATE TABLE Suppliers (
     SupplierID INT PRIMARY KEY IDENTITY,
     SupplierName NVARCHAR(100) UNIQUE,
@@ -119,6 +36,7 @@ CREATE TABLE Inventory (
     ProductID INT NOT NULL,
     WarehouseID INT NOT NULL,
     Quantity INT,
+    LastUpdated DATETIME NULL,
     FOREIGN KEY (ProductID) REFERENCES Products(ProductID),
     FOREIGN KEY (WarehouseID) REFERENCES Warehouses(WarehouseID)
 );
@@ -131,195 +49,146 @@ CREATE TABLE Orders (
     FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
 );
 
-CREATE TABLE OrderDetails (
-    OrderDetailID INT PRIMARY KEY IDENTITY,
-    OrderID INT NOT NULL,
-    ProductID INT NOT NULL,
-    Quantity INT,
-    FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
-    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
-);
 
--- Steg 3: Infoga exempeldata
+
+CREATE TRIGGER UpdateInventoryTimestamp
+ON Inventory
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Uppdatera LastUpdated med aktuell tid
+    UPDATE Inventory
+    SET LastUpdated = GETDATE()
+    FROM Inventory i
+    INNER JOIN Inserted ins ON i.InventoryID = ins.InventoryID;
+END;
+
+-- Lägg till exempeldata i tabeller
 INSERT INTO Suppliers (SupplierName, ContactInfo) VALUES
 ('Supplier A', 'contact@supplierA.com'),
-('Supplier B', 'contact@supplierB.com'),
-('Supplier C', 'contact@supplierC.com');
+('Supplier B', 'contact@supplierB.com');
 
 INSERT INTO Products (ProductName, SKU, Price, SupplierID) VALUES
 ('Product 1', 'SKU001', 100.00, 1),
-('Product 2', 'SKU002', 200.00, 2),
-('Product 3', 'SKU003', 300.00, 3);
+('Product 2', 'SKU002', 200.00, 2);
 
 INSERT INTO Warehouses (Location, Capacity) VALUES
 ('Stockholm', 500),
-('Gothenburg', 300),
-('Malmo', 200);
+('Gothenburg', 300);
 
 INSERT INTO Inventory (ProductID, WarehouseID, Quantity) VALUES
 (1, 1, 50),
-(2, 2, 30),
-(3, 3, 20);
+(2, 2, 30);
 
 INSERT INTO Orders (OrderDate, ProductID, Quantity) VALUES
 ('2024-11-01', 1, 10),
-('2024-11-05', 2, 5),
-('2024-11-10', 3, 15);
+('2024-11-05', 2, 5);
 
-INSERT INTO OrderDetails (OrderID, ProductID, Quantity) VALUES
-(1, 1, 10),
-(2, 2, 5),
-(3, 3, 15);
 
--- Steg 4: Skapa vyer
+-- Skapa vyer för att visa data
 CREATE VIEW WarehouseInventory AS
 SELECT w.WarehouseID, w.Location, p.ProductName, i.Quantity
 FROM Inventory i
 INNER JOIN Products p ON i.ProductID = p.ProductID
 INNER JOIN Warehouses w ON i.WarehouseID = w.WarehouseID;
 
-CREATE VIEW RecentOrders AS
-SELECT o.OrderID, o.OrderDate, p.ProductName, o.Quantity
-FROM Orders o
-INNER JOIN Products p ON o.ProductID = p.ProductID
-WHERE o.OrderDate >= DATEADD(month, -1, GETDATE());
+SELECT * FROM WarehouseInventory;
 
--- Steg 5: Skapa lagrade procedurer
-CREATE PROCEDURE AddProduct
-    @ProductName NVARCHAR(100),
-    @SKU NVARCHAR(50),
-    @Price DECIMAL(10, 2),
-    @SupplierID INT
+CREATE VIEW SupplierProducts AS
+SELECT s.SupplierName, p.ProductName, p.Price
+FROM Products p
+INNER JOIN Suppliers s ON p.SupplierID = s.SupplierID;
+
+SELECT * FROM SupplierProducts;
+
+-- Lagra procedur för att visa lagerstatus
+CREATE PROCEDURE GetInventoryStatus
 AS
 BEGIN
-    -- Kontrollera om SKU redan finns
-    IF NOT EXISTS (SELECT 1 FROM Products WHERE SKU = @SKU)
-    BEGIN
-        INSERT INTO Products (ProductName, SKU, Price, SupplierID)
-        VALUES (@ProductName, @SKU, @Price, @SupplierID);
-    END
-    ELSE
-    BEGIN
-        PRINT 'Produkt med SKU redan finns.';
-    END
+    SELECT 
+        w.Location, 
+        p.ProductName, 
+        i.Quantity
+    FROM Inventory i
+    INNER JOIN Products p ON i.ProductID = p.ProductID
+    INNER JOIN Warehouses w ON i.WarehouseID = w.WarehouseID;
 END;
 
-CREATE PROCEDURE AddOrder
+EXEC GetInventoryStatus;
+
+CREATE PROCEDURE AddOrders
     @ProductID INT,
     @Quantity INT,
     @OrderDate DATE
 AS
 BEGIN
-    INSERT INTO Orders (ProductID, Quantity, OrderDate)
-    VALUES (@ProductID, @Quantity, @OrderDate);
+    BEGIN TRANSACTION;
 
-    -- Uppdatera lagret
-    UPDATE Inventory
-    SET Quantity = Quantity - @Quantity
-    WHERE ProductID = @ProductID;
+    BEGIN TRY
+        INSERT INTO Orders (ProductID, Quantity, OrderDate)
+        VALUES (@ProductID, @Quantity, @OrderDate);
+
+        -- Uppdatera lager
+        UPDATE Inventory
+        SET Quantity = Quantity - @Quantity
+        WHERE ProductID = @ProductID;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
 END;
 
--- Trigger för att logga beställningar
-CREATE TRIGGER LogOrderInsert
-ON Orders
-AFTER INSERT
-AS
-BEGIN
-    PRINT 'En ny beställning har lagts in.';
-END;
+SELECT * FROM Orders;
 
--- Trigger för att uppdatera lagret efter beställning
-CREATE TRIGGER UpdateInventoryAfterOrder
-ON Orders
-AFTER INSERT
-AS
-BEGIN
-    UPDATE inv
-    SET inv.Quantity = inv.Quantity - i.Quantity
-    FROM Inventory inv
-    INNER JOIN Inserted i ON inv.ProductID = i.ProductID;
-END;
+EXEC AddOrder 
+    @ProductID = 3, 
+    @Quantity = 20, 
+    @OrderDate = '2024-12-15';
 
--- Steg 7: Kör statistiska frågor
-SELECT COUNT(*) AS TotalInventory FROM Inventory;
-SELECT AVG(Price) AS AverageProductPrice FROM Products;
-SELECT SUM(Quantity) AS TotalStock FROM Inventory;
+    SELECT * FROM Orders;
 
--- Steg 8: Transaktion för att lägga till produkt och uppdatera lagret
-BEGIN TRANSACTION;
-BEGIN TRY
-    DECLARE @NewProductID INT;
+EXEC GetInventoryStatus;
 
-    -- Kontrollera om SKU redan finns
-    IF NOT EXISTS (SELECT 1 FROM Products WHERE SKU = 'EXP123')
-    BEGIN
-        INSERT INTO Products (ProductName, SKU, Price, SupplierID)
-        VALUES ('Exempelprodukt', 'EXP123', 500.00, 1);
-        
-        SET @NewProductID = SCOPE_IDENTITY();
+-- Visa totalt antal produkter i lager
+SELECT COUNT(*) AS TotalProducts FROM Products;
 
-        INSERT INTO Inventory (ProductID, WarehouseID, Quantity)
-        VALUES (@NewProductID, 1, 100);
-    END
-    ELSE
-    BEGIN
-        PRINT 'Produkt med SKU EXP123 finns redan.';
-    END
+-- Räkna ut medelpriset för produkter
+SELECT AVG(Price) AS AveragePrice FROM Products;
 
-    COMMIT TRANSACTION;
-END TRY
-BEGIN CATCH
-    ROLLBACK TRANSACTION;
-    THROW;
-END CATCH;
+-- Lägg till ny produkt
+INSERT INTO Products (ProductName, SKU, Price, SupplierID)
+VALUES ('Product 3', 'SKU003', 150.00, 1);
 
--- Steg 9: Tester för transaktioner och triggers
+-- Uppdatera lagerkvantitet
+UPDATE Inventory
+SET Quantity = 60
+WHERE InventoryID = 1;
 
--- 1. Testa transaktionen för att lägga till produkt och uppdatera lager
-BEGIN TRANSACTION;
-BEGIN TRY
-    -- Lägg till produkt och uppdatera lagret
-    EXEC AddProduct @ProductName = 'Test Product', @SKU = 'TEST123', @Price = 250.00, @SupplierID = 1;
+-- Ta bort en order
+DELETE FROM Orders
+WHERE OrderID = 1;
 
-    -- Kontrollera att produkten har lagts till i Products
-    SELECT * FROM Products WHERE SKU = 'TEST123';
 
-    -- Uppdatera lagret
-    EXEC AddOrder @ProductID = (SELECT ProductID FROM Products WHERE SKU = 'TEST123'), @Quantity = 10, @OrderDate = '2024-11-28';
+--Uppdatera inventory för ngn product
+UPDATE Inventory
+SET Quantity = 70
+WHERE InventoryID = 1;
 
-    -- Kontrollera att lagret har uppdaterats i Inventory
-    SELECT * FROM Inventory WHERE ProductID = (SELECT ProductID FROM Products WHERE SKU = 'TEST123');
+-- Kontrollera resultatet
+SELECT * FROM Inventory;
 
-    COMMIT TRANSACTION;
-END TRY
-BEGIN CATCH
-    ROLLBACK TRANSACTION;
-    THROW;
-END CATCH;
-
--- 2. Testa felhantering i transaktionen (försök att lägga till en produkt med samma SKU)
-BEGIN TRANSACTION;
-BEGIN TRY
-    -- Försök att lägga till en produkt med samma SKU som redan finns
-    EXEC AddProduct @ProductName = 'Existing Product', @SKU = 'SKU001', @Price = 500.00, @SupplierID = 1;
-
-    -- Kontrollera om någon produkt med samma SKU lades till
-    SELECT * FROM Products WHERE SKU = 'SKU001';
-
-    COMMIT TRANSACTION;
-END TRY
-BEGIN CATCH
-    ROLLBACK TRANSACTION;
-    PRINT 'Ett fel har inträffat. Transaktionen har rullats tillbaka.';
-    THROW;
-END CATCH;
-
--- 3. Testa trigger för lageruppdatering efter beställning
-INSERT INTO Orders (OrderDate, ProductID, Quantity) VALUES ('2024-11-28', 1, 5);
-SELECT * FROM Inventory WHERE ProductID = 1;
-
--- 4. Testa trigger för loggning av beställningar
-INSERT INTO Orders (OrderDate, ProductID, Quantity) VALUES ('2024-11-28', 2, 3);
-
--- Steg 10: Ta bort exempelprodukt
-DELETE FROM Products WHERE ProductID = 1;
+-- Visa koppling mellan produkter, lager och leverantörer
+SELECT 
+    p.ProductName, 
+    s.SupplierName, 
+    w.Location, 
+    i.Quantity
+FROM Inventory i
+INNER JOIN Products p ON i.ProductID = p.ProductID
+INNER JOIN Suppliers s ON p.SupplierID = s.SupplierID
+INNER JOIN Warehouses w ON i.WarehouseID = w.WarehouseID;
